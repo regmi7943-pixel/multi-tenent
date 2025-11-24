@@ -1,50 +1,78 @@
-# Welcome to your Expo app 👋
+# Snowfox Multi-Tenant App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A robust, responsive, and multi-tenant React Native application built with Expo for Web, iOS, and Android.
 
-## Get started
+## 🚀 Features
 
-1. Install dependencies
+- **Multi-Tenancy**: Built-in support for multiple tenants with distinct themes and configurations.
+- **Responsive Design**: Adaptive layout that works seamlessly on Mobile, Tablet, and Desktop.
+- **Component Library**: A comprehensive set of atomic components (Atoms, Molecules, Organisms).
+- **Data Visualization**: Integrated charts (Bar, Line, Pie, Area) using `react-native-svg`.
+- **Navigation**: Responsive navigation with Sidebar for desktop and Hamburger menu for mobile.
 
-   ```bash
-   npm install
-   ```
+## 🛠 Tech Stack
 
-2. Start the app
+- **Framework**: [React Native](https://reactnative.dev/) / [Expo](https://expo.dev/)
+- **Web Support**: [React Native Web](https://necolas.github.io/react-native-web/)
+- **Styling**: Custom theming system with responsive hooks.
+- **Icons**: [Ionicons](https://ionic.io/ionicons)
+- **Charts**: [react-native-svg](https://github.com/software-mansion/react-native-svg)
 
-   ```bash
-   npx expo start
-   ```
+## 📦 Components
 
-In the output, you'll find options to open the app in a
+The project follows an Atomic Design methodology:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Atoms
+- `Button`, `Input`, `Text`, `Badge`, `Avatar`, `Spinner`, `ProgressBar`, `Toast`
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Molecules
+- `FormField`, `SearchBar`, `Card`, `Modal`, `Tabs`, `Accordion`, `EmptyState`
 
-## Get a fresh project
+### Organisms
+- `Header`, `Sidebar`, `NavBar`, `DataTable`, `UserMenu`
+- **Charts**: `BarChart`, `LineChart`, `PieChart`, `AreaChart`
 
-When you're ready, run:
+### Templates
+- `ResponsiveShell`: The main layout wrapper handling responsiveness and navigation.
 
-```bash
-npm run reset-project
+## 🏃‍♂️ Getting Started
+
+1.  **Install Dependencies**
+    ```bash
+    npm install
+    ```
+
+2.  **Start the App**
+    ```bash
+    npx expo start
+    ```
+
+3.  **Run on Web**
+    Press `w` in the terminal or open the provided localhost link.
+
+4.  **Run on Mobile**
+    Scan the QR code with the Expo Go app (Android) or Camera app (iOS).
+
+## 📊 Chart Configuration
+
+The project uses `react-native-svg` for high-performance, scalable charts.
+- **PieChart**: Supports donut mode and custom colors.
+- **AreaChart**: Features smooth cubic bezier curves and gradient fills.
+- **LineChart**: Includes grid lines and data points.
+- **BarChart**: Responsive vertical bars.
+
+## 🎨 Theming
+
+The app uses a `ThemeContext` to provide colors, spacing, and typography.
+To customize the theme, edit `theme/theme.ts`.
+
+## 📱 Responsiveness
+
+Use the `useResponsive` hook to adapt layouts:
+```typescript
+const { isMobile, isTablet, isDesktop } = useResponsive();
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 📄 License
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+MIT
