@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
     Animated,
     KeyboardAvoidingView,
     Platform,
@@ -28,15 +27,17 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
     // Food icons to rotate through
     const foodIcons = ['🍕', '🍔', '🍟', '🌮', '🍝', '🍜', '🍱', '🍽️', '🥗', '🍱'];
     const [currentIconIndex, setCurrentIconIndex] = useState(0);
 
-    // Animation for the food icon
+    // Animations
     const slideAnim = useRef(new Animated.Value(-100)).current;
     const fadeAnim = useRef(new Animated.Value(1)).current;
     const scaleAnim = useRef(new Animated.Value(1)).current;
+    const shakeAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         // Initial slide in animation
@@ -44,7 +45,7 @@ export default function LoginScreen() {
             toValue: 0,
             tension: 50,
             friction: 8,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
         }).start();
     }, []);
 
@@ -56,12 +57,12 @@ export default function LoginScreen() {
                 Animated.timing(fadeAnim, {
                     toValue: 0,
                     duration: 300,
-                    useNativeDriver: true,
+                    useNativeDriver: Platform.OS !== 'web',
                 }),
                 Animated.timing(scaleAnim, {
                     toValue: 0.8,
                     duration: 300,
-                    useNativeDriver: true,
+                    useNativeDriver: Platform.OS !== 'web',
                 })
             ]).start(() => {
                 // Change icon
@@ -72,13 +73,13 @@ export default function LoginScreen() {
                     Animated.timing(fadeAnim, {
                         toValue: 1,
                         duration: 300,
-                        useNativeDriver: true,
+                        useNativeDriver: Platform.OS !== 'web',
                     }),
                     Animated.spring(scaleAnim, {
                         toValue: 1,
                         tension: 50,
                         friction: 7,
-                        useNativeDriver: true,
+                        useNativeDriver: Platform.OS !== 'web',
                     })
                 ]).start();
             });
@@ -87,9 +88,21 @@ export default function LoginScreen() {
         return () => clearInterval(interval);
     }, []);
 
+    const triggerShake = () => {
+        Animated.sequence([
+            Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
+            Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
+            Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
+            Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: Platform.OS !== 'web' })
+        ]).start();
+    };
+
     const handleLogin = async () => {
+        setErrorMessage(''); // Clear previous errors
+
         if (!email || !password) {
-            Alert.alert('Error', 'Please enter both email and password');
+            setErrorMessage('Please enter both email and password');
+            triggerShake();
             return;
         }
 
@@ -106,16 +119,18 @@ export default function LoginScreen() {
 
                     // Navigate based on role
                     if (user.role === 'admin') {
-                        router.replace('/admin-dashboard');
+                        router.replace('/admin' as any);
                     } else {
-                        router.replace('/user-dashboard');
+                        router.replace('/user' as any);
                     }
                 } else {
-                    Alert.alert('Success', 'Login successful!');
+                    // Fallback if no user object
+                    router.replace('/user' as any);
                 }
             }
         } catch (error: any) {
-            Alert.alert('Login Failed', error.message || 'An error occurred');
+            setErrorMessage(error.message || 'Invalid email or password');
+            triggerShake();
         } finally {
             setLoading(false);
         }
@@ -159,60 +174,87 @@ export default function LoginScreen() {
                         </Text>
                     </View>
 
-                    <Card style={styles.formCard}>
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.text, marginBottom: theme.spacing.xs }]}>
-                                Email Address
-                            </Text>
-                            <Input
-                                placeholder="name@example.com"
-                                value={email}
-                                onChangeText={setEmail}
-                                autoCapitalize="none"
-                                keyboardType="email-address"
-                                disabled={loading}
-                            />
-                        </View>
+                    <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
+                        <Card style={styles.formCard}>
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.text, marginBottom: theme.spacing.xs }]}>
+                                    Email Address
+                                </Text>
+                                <Input
+                                    placeholder="name@example.com"
+                                    value={email}
+                                    onChangeText={(text) => {
+                                        setEmail(text);
+                                        setErrorMessage('');
+                                    }}
+                                    autoCapitalize="none"
+                                    keyboardType="email-address"
+                                    disabled={loading}
+                                    style={errorMessage ? { borderColor: theme.colors.error } : undefined}
+                                />
+                            </View>
 
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.text, marginBottom: theme.spacing.xs }]}>
-                                Password
-                            </Text>
-                            <Input
-                                placeholder="Enter your password"
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry={!showPassword}
-                                disabled={loading}
-                                rightIcon={
-                                    <EyeIcon
-                                        visible={showPassword}
-                                        onPress={() => setShowPassword(!showPassword)}
-                                    />
-                                }
-                            />
-                        </View>
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.text, marginBottom: theme.spacing.xs }]}>
+                                    Password
+                                </Text>
+                                <Input
+                                    placeholder="Enter your password"
+                                    value={password}
+                                    onChangeText={(text) => {
+                                        setPassword(text);
+                                        setErrorMessage('');
+                                    }}
+                                    secureTextEntry={!showPassword}
+                                    disabled={loading}
+                                    style={errorMessage ? { borderColor: theme.colors.error } : undefined}
+                                    rightIcon={
+                                        <EyeIcon
+                                            visible={showPassword}
+                                            onPress={() => setShowPassword(!showPassword)}
+                                        />
+                                    }
+                                />
+                            </View>
 
-                        <Button
-                            variant="primary"
-                            size="md"
-                            fullWidth
-                            onPress={handleLogin}
-                            loading={loading}
-                            style={{ marginTop: theme.spacing.md }}
-                        >
-                            Sign In
-                        </Button>
+                            {errorMessage ? (
+                                <Text style={{
+                                    color: theme.colors.error,
+                                    textAlign: 'center',
+                                    marginBottom: theme.spacing.md,
+                                    fontWeight: '500'
+                                }}>
+                                    {errorMessage}
+                                </Text>
+                            ) : null}
 
-                        <View style={styles.footer}>
+                            <Button
+                                variant="primary"
+                                size="md"
+                                fullWidth
+                                onPress={handleLogin}
+                                loading={loading}
+                                style={{ marginTop: errorMessage ? 0 : theme.spacing.md }}
+                            >
+                                Sign In
+                            </Button>
 
-
-                        </View>
-                    </Card>
+                            <View style={styles.footer}>
+                                <Text style={{ color: theme.colors.textSecondary }}>
+                                    Don't have an account?{' '}
+                                </Text>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onPress={() => router.push('/register' as any)}
+                                >
+                                    Sign Up
+                                </Button>
+                            </View>
+                        </Card>
+                    </Animated.View>
                 </View>
             </ScrollView>
         </KeyboardAvoidingView>
     );
 }
-
-

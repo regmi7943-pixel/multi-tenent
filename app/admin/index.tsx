@@ -1,14 +1,14 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { ScrollView, View } from 'react-native';
-import { Button } from '../components/atoms/Button';
-import { Card } from '../components/atoms/Card';
-import { Heading } from '../components/atoms/Heading';
-import { Text } from '../components/atoms/Text';
-import { useResponsive } from '../hooks/useResponsive';
-import { useTheme } from '../hooks/useTheme';
-import { api } from '../services/api';
-import { CONTENT_MAX_WIDTH, dashboardStyles as styles } from '../styles';
+import { Button } from '../../components/atoms/Button';
+import { Card } from '../../components/atoms/Card';
+import { Heading } from '../../components/atoms/Heading';
+import { Text } from '../../components/atoms/Text';
+import { useResponsive } from '../../hooks/useResponsive';
+import { useTheme } from '../../hooks/useTheme';
+import { api } from '../../services/api';
+import { CONTENT_MAX_WIDTH, dashboardStyles as styles } from '../../styles';
 
 export default function AdminDashboard() {
     const router = useRouter();

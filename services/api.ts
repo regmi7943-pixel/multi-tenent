@@ -59,10 +59,10 @@ class ApiService {
             }
 
             if (!response.ok) {
-                console.error('API Error Response:', {
-                    status: response.status,
-                    data: data
-                });
+                // console.error('API Error Response:', {
+                //     status: response.status,
+                //     data: data
+                // });
                 const errorMessage = typeof data === 'object' && data.message
                     ? data.message
                     : (typeof data === 'string' ? data : `Request failed with status ${response.status}`);
@@ -71,7 +71,7 @@ class ApiService {
 
             return data;
         } catch (error: any) {
-            console.error('API Request Error:', error);
+            // console.error('API Request Error:', error);
             throw error;
         }
     }

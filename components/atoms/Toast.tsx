@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import {
     Animated,
+    Platform,
     StyleSheet,
     TouchableOpacity,
     ViewStyle
@@ -44,14 +45,14 @@ export const Toast: React.FC<ToastProps> = ({
             Animated.parallel([
                 Animated.spring(translateY, {
                     toValue: 0,
-                    useNativeDriver: true,
+                    useNativeDriver: Platform.OS !== 'web',
                     tension: 50,
                     friction: 8,
                 }),
                 Animated.timing(opacity, {
                     toValue: 1,
                     duration: 200,
-                    useNativeDriver: true,
+                    useNativeDriver: Platform.OS !== 'web',
                 }),
             ]).start();
 
@@ -71,12 +72,12 @@ export const Toast: React.FC<ToastProps> = ({
             Animated.timing(translateY, {
                 toValue: 100,
                 duration: 200,
-                useNativeDriver: true,
+                useNativeDriver: Platform.OS !== 'web',
             }),
             Animated.timing(opacity, {
                 toValue: 0,
                 duration: 200,
-                useNativeDriver: true,
+                useNativeDriver: Platform.OS !== 'web',
             }),
         ]).start(() => {
             onDismiss();
@@ -108,7 +109,7 @@ export const Toast: React.FC<ToastProps> = ({
                     ...theme.shadows.lg,
                     transform: [{ translateY }],
                     opacity,
-                    maxWidth: isMobile ? '90%' : 400,
+                    maxWidth: isMobile ? '90%' : 600,
                     bottom: isMobile ? theme.spacing.lg : theme.spacing.xl,
                 },
                 isMobile ? styles.containerMobile : styles.containerDesktop,
@@ -159,6 +160,6 @@ const styles = StyleSheet.create({
     },
     containerDesktop: {
         left: '50%',
-        transform: [{ translateX: -200 }],
+        transform: [{ translateX: -300 }],
     },
 });
