@@ -44,3 +44,6 @@ export type { ToastProps, ToastVariant } from './Toast';
 export { ProgressBar } from './ProgressBar';
 export type { ProgressBarProps, ProgressBarVariant } from './ProgressBar';
 
+export { EyeIcon } from './EyeIcon';
+export type { EyeIconProps } from './EyeIcon';
+
