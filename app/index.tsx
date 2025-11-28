@@ -34,6 +34,7 @@ export default function LoginScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+    const [biometricType, setBiometricType] = useState<'face' | 'fingerprint' | null>(null);
 
     // Biometric Modal State
     const [showBiometricModal, setShowBiometricModal] = useState(false);
@@ -57,13 +58,18 @@ export default function LoginScreen() {
             const { token } = await BiometricService.getCredentials();
             if (token) {
                 setIsBiometricSupported(true);
+                // Detect biometric type
+                const type = await BiometricService.getBiometricType();
+                setBiometricType(type);
                 // Show welcome modal on app open
                 setShowWelcomeModal(true);
             } else {
                 setIsBiometricSupported(false);
+                setBiometricType(null);
             }
         } else {
             setIsBiometricSupported(false);
+            setBiometricType(null);
         }
     };
 
@@ -397,7 +403,7 @@ export default function LoginScreen() {
                                         }}
                                     >
                                         <Ionicons
-                                            name="finger-print"
+                                            name={biometricType === 'face' ? 'scan-outline' : 'finger-print'}
                                             size={24}
                                             color={theme.colors.primary}
                                         />
@@ -413,6 +419,7 @@ export default function LoginScreen() {
                 visible={showWelcomeModal}
                 onBiometricPress={handleWelcomeBiometricPress}
                 onPasswordPress={handleUsePassword}
+                biometricType={biometricType}
             />
 
             <BiometricPromptModal

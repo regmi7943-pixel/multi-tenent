@@ -9,12 +9,14 @@ interface BiometricWelcomeModalProps {
     visible: boolean;
     onBiometricPress: () => void;
     onPasswordPress: () => void;
+    biometricType: 'face' | 'fingerprint' | null;
 }
 
 export const BiometricWelcomeModal: React.FC<BiometricWelcomeModalProps> = ({
     visible,
     onBiometricPress,
     onPasswordPress,
+    biometricType,
 }) => {
     const { theme } = useTheme();
     const slideAnim = useRef(new Animated.Value(-50)).current;
@@ -79,7 +81,11 @@ export const BiometricWelcomeModal: React.FC<BiometricWelcomeModalProps> = ({
                         onPress={onBiometricPress}
                         activeOpacity={0.8}
                     >
-                        <Ionicons name="finger-print" size={60} color={theme.colors.primary} />
+                        <Ionicons
+                            name={biometricType === 'face' ? 'scan-outline' : 'finger-print'}
+                            size={60}
+                            color={theme.colors.primary}
+                        />
                         <Text style={styles.tapHereText}>Tap here</Text>
                     </TouchableOpacity>
                 </View>

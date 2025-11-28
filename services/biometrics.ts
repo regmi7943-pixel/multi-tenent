@@ -1,113 +1,113 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
 
-const TOKEN_KEY = 'auth_token';
-const USER_KEY = 'user_data';
+const CREDENTIALS_KEY = 'biometric_credentials';
 
-export const BiometricService = {
+export class BiometricService {
     /**
      * Check if the device supports biometric authentication
      */
-    checkDeviceSupport: async (): Promise<boolean> => {
+    static async checkDeviceSupport(): Promise<boolean> {
         try {
-            const hasHardware = await LocalAuthentication.hasHardwareAsync();
-            const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-            return hasHardware && isEnrolled;
+            const compatible = await LocalAuthentication.hasHardwareAsync();
+            if (!compatible) return false;
+
+            const enrolled = await LocalAuthentication.isEnrolledAsync();
+            return enrolled;
         } catch (error) {
-            console.error('Biometric support check failed:', error);
+            console.error('Error checking biometric support:', error);
             return false;
         }
-    },
+    }
 
     /**
-     * Get the available biometric types (Fingerprint, FaceID, etc.)
+     * Authenticate using biometrics
      */
-    getBiometricTypes: async (): Promise<LocalAuthentication.AuthenticationType[]> => {
-        try {
-            return await LocalAuthentication.supportedAuthenticationTypesAsync();
-        } catch (error) {
-            console.error('Failed to get biometric types:', error);
-            return [];
-        }
-    },
-
-    /**
-     * Authenticate the user using biometrics
-     */
-    authenticate: async (): Promise<boolean> => {
+    static async authenticate(): Promise<boolean> {
         try {
             const result = await LocalAuthentication.authenticateAsync({
-                promptMessage: 'Login with Biometrics',
-                fallbackLabel: 'Use Passcode',
+                promptMessage: 'Authenticate to continue',
                 cancelLabel: 'Cancel',
                 disableDeviceFallback: false,
             });
+
             return result.success;
         } catch (error) {
-            console.error('Biometric authentication failed:', error);
+            console.error('Biometric authentication error:', error);
             return false;
         }
-    },
+    }
 
     /**
-     * Securely store the auth token
+     * Save credentials securely
      */
-    saveCredentials: async (token: string, user: any): Promise<void> => {
+    static async saveCredentials(token: string, user: any): Promise<void> {
         try {
-            if (Platform.OS !== 'web') {
-                await SecureStore.setItemAsync(TOKEN_KEY, token);
-                await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
-            } else {
-                // Fallback for web (not secure, but functional for dev)
-                localStorage.setItem(TOKEN_KEY, token);
-                localStorage.setItem(USER_KEY, JSON.stringify(user));
-            }
+            const credentials = JSON.stringify({ token, user });
+            await SecureStore.setItemAsync(CREDENTIALS_KEY, credentials);
         } catch (error) {
-            console.error('Failed to save credentials:', error);
-        }
-    },
-
-    /**
-     * Retrieve stored credentials
-     */
-    getCredentials: async (): Promise<{ token: string | null; user: any | null }> => {
-        try {
-            let token: string | null = null;
-            let userStr: string | null = null;
-
-            if (Platform.OS !== 'web') {
-                token = await SecureStore.getItemAsync(TOKEN_KEY);
-                userStr = await SecureStore.getItemAsync(USER_KEY);
-            } else {
-                token = localStorage.getItem(TOKEN_KEY);
-                userStr = localStorage.getItem(USER_KEY);
-            }
-
-            return {
-                token,
-                user: userStr ? JSON.parse(userStr) : null,
-            };
-        } catch (error) {
-            console.error('Failed to get credentials:', error);
-            return { token: null, user: null };
-        }
-    },
-
-    /**
-     * Clear stored credentials (logout)
-     */
-    clearCredentials: async (): Promise<void> => {
-        try {
-            if (Platform.OS !== 'web') {
-                await SecureStore.deleteItemAsync(TOKEN_KEY);
-                await SecureStore.deleteItemAsync(USER_KEY);
-            } else {
-                localStorage.removeItem(TOKEN_KEY);
-                localStorage.removeItem(USER_KEY);
-            }
-        } catch (error) {
-            console.error('Failed to clear credentials:', error);
+            console.error('Error saving credentials:', error);
+            throw error;
         }
     }
-};
+
+    /**
+     * Get saved credentials
+     */
+    static async getCredentials(): Promise<{ token: string | null; user: any | null }> {
+        try {
+            const credentials = await SecureStore.getItemAsync(CREDENTIALS_KEY);
+            if (credentials) {
+                const parsed = JSON.parse(credentials);
+                return { token: parsed.token, user: parsed.user };
+            }
+            return { token: null, user: null };
+        } catch (error) {
+            console.error('Error getting credentials:', error);
+            return { token: null, user: null };
+        }
+    }
+
+    /**
+     * Clear stored credentials
+     */
+    static async clearCredentials(): Promise<void> {
+        try {
+            await SecureStore.deleteItemAsync(CREDENTIALS_KEY);
+        } catch (error) {
+            console.error('Error clearing credentials:', error);
+        }
+    }
+
+    /**
+     * Get the type of biometric authentication available
+     * Returns 'face' for facial recognition, 'fingerprint' for fingerprint, or null if none
+     */
+    static async getBiometricType(): Promise<'face' | 'fingerprint' | null> {
+        try {
+            const compatible = await LocalAuthentication.hasHardwareAsync();
+            if (!compatible) return null;
+
+            const enrolled = await LocalAuthentication.isEnrolledAsync();
+            if (!enrolled) return null;
+
+            const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+
+            // Prioritize face recognition if available
+            if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+                return 'face';
+            }
+
+            // Fallback to fingerprint
+            if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+                return 'fingerprint';
+            }
+
+            // For iris or other types, default to fingerprint icon
+            return 'fingerprint';
+        } catch (error) {
+            console.error('Error detecting biometric type:', error);
+            return null;
+        }
+    }
+}
