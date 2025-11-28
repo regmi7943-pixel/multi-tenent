@@ -2,10 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Slot, Tabs, usePathname, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Sidebar, SidebarItem } from '../../components/organisms/Sidebar';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useTheme } from '../../hooks/useTheme';
-
 export default function AdminLayout() {
     const { theme } = useTheme();
     const { isMobile } = useResponsive();
@@ -16,7 +16,8 @@ export default function AdminLayout() {
     // If mobile, use the Tab layout
     if (isMobile) {
         return (
-            <Tabs
+            <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right','bottom']}>
+                         <Tabs
                 screenOptions={{
                     tabBarActiveTintColor: theme.colors.primary,
                     tabBarInactiveTintColor: theme.colors.textSecondary,
@@ -127,6 +128,8 @@ export default function AdminLayout() {
                     }}
                 />
             </Tabs>
+            </SafeAreaView>
+           
         );
     }
 
