@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
+    Alert,
     Animated,
     KeyboardAvoidingView,
     Platform,
@@ -35,6 +36,7 @@ export default function LoginScreen() {
     const [errorMessage, setErrorMessage] = useState('');
     const [isBiometricSupported, setIsBiometricSupported] = useState(false);
     const [biometricType, setBiometricType] = useState<'face' | 'fingerprint' | null>(null);
+    const [showBiometricNotSupported, setShowBiometricNotSupported] = useState(false);
 
     // Biometric Modal State
     const [showBiometricModal, setShowBiometricModal] = useState(false);
@@ -70,8 +72,26 @@ export default function LoginScreen() {
         } else {
             setIsBiometricSupported(false);
             setBiometricType(null);
+            // Show alert that biometric is not supported
+            setShowBiometricNotSupported(true);
         }
     };
+
+    useEffect(() => {
+        if (showBiometricNotSupported) {
+            Alert.alert(
+                'Biometric Not Supported',
+                'Your device does not support biometric authentication or it is not set up. Please use password to login.',
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => setShowBiometricNotSupported(false)
+                    }
+                ],
+                { cancelable: false }
+            );
+        }
+    }, [showBiometricNotSupported]);
 
     useEffect(() => {
         // Check for biometric support
