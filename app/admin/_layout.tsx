@@ -16,7 +16,7 @@ export default function AdminLayout() {
     // If mobile, use the Tab layout
     if (isMobile) {
         return (
-            <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right','bottom']}>
+            <SafeAreaView style={{ flex: 1 }} edges={[ 'left', 'right','bottom']}>
                          <Tabs
                 screenOptions={{
                     tabBarActiveTintColor: theme.colors.primary,
