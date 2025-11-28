@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -5,6 +6,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    TouchableOpacity,
     View
 } from 'react-native';
 import { Button } from '../components/atoms/Button';
@@ -13,9 +15,12 @@ import { EyeIcon } from '../components/atoms/EyeIcon';
 import { Heading } from '../components/atoms/Heading';
 import { Input } from '../components/atoms/Input';
 import { Text } from '../components/atoms/Text';
+import { BiometricPromptModal } from '../components/molecules/BiometricPromptModal';
+import { BiometricWelcomeModal } from '../components/molecules/BiometricWelcomeModal';
 import { useResponsive } from '../hooks/useResponsive';
 import { useTheme } from '../hooks/useTheme';
 import { api } from '../services/api';
+import { BiometricService } from '../services/biometrics';
 import { loginStyles as styles } from '../styles/loginStyles';
 
 export default function LoginScreen() {
@@ -28,6 +33,12 @@ export default function LoginScreen() {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+    const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+
+    // Biometric Modal State
+    const [showBiometricModal, setShowBiometricModal] = useState(false);
+    const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+    const [pendingBiometricData, setPendingBiometricData] = useState<{ token: string, user: any } | null>(null);
 
     // Food icons to rotate through
     const foodIcons = ['🍕', '🍔', '🍟', '🌮', '🍝', '🍜', '🍱', '🍽️', '🥗', '🍱'];
@@ -39,7 +50,27 @@ export default function LoginScreen() {
     const scaleAnim = useRef(new Animated.Value(1)).current;
     const shakeAnim = useRef(new Animated.Value(0)).current;
 
+    const checkBiometrics = async () => {
+        const supported = await BiometricService.checkDeviceSupport();
+        if (supported) {
+            // Check if we have stored credentials
+            const { token } = await BiometricService.getCredentials();
+            if (token) {
+                setIsBiometricSupported(true);
+                // Show welcome modal on app open
+                setShowWelcomeModal(true);
+            } else {
+                setIsBiometricSupported(false);
+            }
+        } else {
+            setIsBiometricSupported(false);
+        }
+    };
+
     useEffect(() => {
+        // Check for biometric support
+        checkBiometrics();
+
         // Initial slide in animation
         Animated.spring(slideAnim, {
             toValue: 0,
@@ -97,6 +128,81 @@ export default function LoginScreen() {
         ]).start();
     };
 
+    const handleBiometricLogin = async () => {
+        const authenticated = await BiometricService.authenticate();
+        if (authenticated) {
+            setLoading(true);
+            try {
+                const { token, user } = await BiometricService.getCredentials();
+                if (token && user) {
+                    api.setToken(token);
+                    api.setUser(user);
+
+                    // Navigate based on role
+                    if (user.role === 'admin') {
+                        router.replace('/admin' as any);
+                    } else {
+                        router.replace('/user' as any);
+                    }
+                } else {
+                    setErrorMessage('No stored credentials found. Please login with password first.');
+                    triggerShake();
+                }
+            } catch (error) {
+                setErrorMessage('Biometric login failed');
+                triggerShake();
+            } finally {
+                setLoading(false);
+            }
+        }
+    };
+
+    const promptForBiometrics = async (token: string, user: any) => {
+        const supported = await BiometricService.checkDeviceSupport();
+        if (!supported) {
+            navigateToDashboard(user);
+            return;
+        }
+
+        // Check if already enabled
+        const { token: existingToken } = await BiometricService.getCredentials();
+        if (existingToken) {
+            navigateToDashboard(user);
+            return;
+        }
+
+        // Store data for callback and show modal immediately
+        setPendingBiometricData({ token, user });
+        setShowBiometricModal(true);
+    };
+
+    const handleBiometricConfirm = async () => {
+        if (pendingBiometricData) {
+            const authenticated = await BiometricService.authenticate();
+            if (authenticated) {
+                await BiometricService.saveCredentials(pendingBiometricData.token, pendingBiometricData.user);
+                setIsBiometricSupported(true);
+            }
+            setShowBiometricModal(false);
+            navigateToDashboard(pendingBiometricData.user);
+        }
+    };
+
+    const handleBiometricCancel = () => {
+        setShowBiometricModal(false);
+        if (pendingBiometricData) {
+            navigateToDashboard(pendingBiometricData.user);
+        }
+    };
+
+    const navigateToDashboard = (user: any) => {
+        if (user.role === 'admin') {
+            router.replace('/admin' as any);
+        } else {
+            router.replace('/user' as any);
+        }
+    };
+
     const handleLogin = async () => {
         setErrorMessage(''); // Clear previous errors
 
@@ -117,12 +223,10 @@ export default function LoginScreen() {
                     const user = response.user || response;
                     api.setUser(user);
 
-                    // Navigate based on role
-                    if (user.role === 'admin') {
-                        router.replace('/admin' as any);
-                    } else {
-                        router.replace('/user' as any);
-                    }
+                    // Check if we need to prompt for biometrics
+                    // If we do, the modal will handle navigation
+                    // If not, promptForBiometrics will handle navigation immediately
+                    promptForBiometrics(response.token, user);
                 } else {
                     // Fallback if no user object
                     router.replace('/user' as any);
@@ -134,6 +238,45 @@ export default function LoginScreen() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleWelcomeBiometricPress = async () => {
+        // Don't close modal yet - keep it open during authentication
+        const authenticated = await BiometricService.authenticate();
+        if (authenticated) {
+            try {
+                const { token, user } = await BiometricService.getCredentials();
+                if (token && user) {
+                    api.setToken(token);
+                    api.setUser(user);
+
+                    // Close modal on success
+                    setShowWelcomeModal(false);
+
+                    // Navigate based on role
+                    if (user.role === 'admin') {
+                        router.replace('/admin' as any);
+                    } else {
+                        router.replace('/user' as any);
+                    }
+                } else {
+                    // Close modal and show error
+                    setShowWelcomeModal(false);
+                    setErrorMessage('No stored credentials found.');
+                    triggerShake();
+                }
+            } catch (error) {
+                // Close modal and show error
+                setShowWelcomeModal(false);
+                setErrorMessage('Biometric login failed');
+                triggerShake();
+            }
+        }
+        // If authentication was cancelled, modal stays open
+    };
+
+    const handleUsePassword = () => {
+        setShowWelcomeModal(false);
     };
 
     return (
@@ -228,33 +371,55 @@ export default function LoginScreen() {
                                 </Text>
                             ) : null}
 
-                            <Button
-                                variant="primary"
-                                size="md"
-                                fullWidth
-                                onPress={handleLogin}
-                                loading={loading}
-                                style={{ marginTop: errorMessage ? 0 : theme.spacing.md }}
-                            >
-                                Sign In
-                            </Button>
-
-                            <View style={styles.footer}>
-                                <Text style={{ color: theme.colors.textSecondary }}>
-                                    Don't have an account?{' '}
-                                </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: errorMessage ? 0 : theme.spacing.md }}>
                                 <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onPress={() => router.push('/register' as any)}
+                                    variant="primary"
+                                    size="md"
+                                    onPress={handleLogin}
+                                    loading={loading}
+                                    style={{ flex: 1, marginRight: theme.spacing.sm }}
                                 >
-                                    Sign Up
+                                    Sign In
                                 </Button>
+
+                                {isBiometricSupported && (
+                                    <TouchableOpacity
+                                        onPress={() => setShowWelcomeModal(true)}
+                                        style={{
+                                            width: 48,
+                                            height: 48,
+                                            backgroundColor: theme.colors.primary + '10',
+                                            borderColor: theme.colors.primary,
+                                            borderWidth: 1,
+                                            borderRadius: 8,
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                        }}
+                                    >
+                                        <Ionicons
+                                            name="finger-print"
+                                            size={24}
+                                            color={theme.colors.primary}
+                                        />
+                                    </TouchableOpacity>
+                                )}
                             </View>
                         </Card>
                     </Animated.View>
                 </View>
             </ScrollView>
+
+            <BiometricWelcomeModal
+                visible={showWelcomeModal}
+                onBiometricPress={handleWelcomeBiometricPress}
+                onPasswordPress={handleUsePassword}
+            />
+
+            <BiometricPromptModal
+                visible={showBiometricModal}
+                onConfirm={handleBiometricConfirm}
+                onCancel={handleBiometricCancel}
+            />
         </KeyboardAvoidingView>
     );
 }
