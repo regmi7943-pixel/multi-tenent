@@ -5,10 +5,17 @@ interface ApiResponse<T> {
     error?: string;
 }
 
+export interface User {
+    _id: string;
+    name: string;
+    email: string;
+    role: string;
+}
+
 class ApiService {
     private baseUrl: string;
     private token: string | null = null;
-    private user: any = null;
+    private user: User | null = null;
 
     constructor(baseUrl: string) {
         this.baseUrl = baseUrl;
@@ -22,11 +29,11 @@ class ApiService {
         return this.token;
     }
 
-    setUser(user: any) {
+    setUser(user: User | null) {
         this.user = user;
     }
 
-    getUser() {
+    getUser(): User | null {
         return this.user;
     }
 
@@ -49,6 +56,10 @@ class ApiService {
 
         try {
             const response = await fetch(url, config);
+
+            if (response.status === 204) {
+                return null as any;
+            }
 
             let data;
             const contentType = response.headers.get("content-type");
@@ -91,9 +102,45 @@ class ApiService {
     }
 
     async getProducts() {
-        return this.request<any[]>('api/products', {
+        return this.request<Product[]>('api/products', {
             method: 'GET',
         });
+    }
+
+    async createProduct(data: CreateProductData) {
+        return this.request<Product>('api/products', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async updateProduct(id: string, data: Partial<CreateProductData>) {
+        console.log('Updating product with ID:', id);
+        try {
+            const result = await this.request<Product>(`api/products/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(data),
+            });
+            console.log('Update successful');
+            return result;
+        } catch (error) {
+            console.error('Update failed:', error);
+            throw error;
+        }
+    }
+
+    async deleteProduct(id: string) {
+        console.log('Deleting product with ID:', id);
+        try {
+            const result = await this.request<void>(`api/products/${id}`, {
+                method: 'DELETE',
+            });
+            console.log('Delete successful');
+            return result;
+        } catch (error) {
+            console.error('Delete failed:', error);
+            throw error;
+        }
     }
 
     async getOrders() {
@@ -101,6 +148,27 @@ class ApiService {
             method: 'GET',
         });
     }
+}
+
+export interface Product {
+    _id: string;
+    name: string;
+    price: number;
+    stock: number;
+    category: string;
+    requiresStock: boolean;
+    lowStockThreshold: number;
+    images: string[];
+}
+
+export interface CreateProductData {
+    name: string;
+    price: number;
+    stock: number;
+    category: string;
+    requiresStock: boolean;
+    lowStockThreshold: number;
+    images: string[];
 }
 
 export const api = new ApiService(API_BASE_URL);
