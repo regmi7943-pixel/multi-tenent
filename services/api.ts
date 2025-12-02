@@ -144,7 +144,64 @@ class ApiService {
     }
 
     async getOrders() {
-        return this.request<any[]>('api/orders/pos', {
+        try {
+            // Try to fetch from a standard endpoint first, if it exists
+            // But since api/orders/pos failed, and we only have customer endpoints documented:
+            const customersData = await this.getCustomers();
+            if (!customersData?.customers) return [];
+
+            const ordersPromises = customersData.customers.map(c => this.getCustomerById(c._id));
+            const customersWithOrders = await Promise.all(ordersPromises);
+
+            // Flatten orders and add customer name
+            const allOrders = customersWithOrders.flatMap(c => {
+                if (!c.orders) return [];
+                return c.orders.map(order => ({
+                    ...order,
+                    customerName: c.customer.name,
+                    customerPhone: c.customer.phone
+                }));
+            });
+
+            // Sort by date if possible (assuming _id or createdAt)
+            return allOrders.sort((a, b) => {
+                const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return dateB - dateA;
+            });
+        } catch (error) {
+            console.error('Error fetching orders via customers:', error);
+            throw error;
+        }
+    }
+    async createPOSOrder(data: CreateOrderData) {
+        return this.request<any>('api/orders/pos', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async getCustomers() {
+        return this.request<{ message: string, customers: Customer[] }>('api/customers', {
+            method: 'GET',
+        });
+    }
+
+    async getCustomerById(id: string) {
+        return this.request<{ customer: Customer, orders: any[] }>(`api/customers/${id}`, {
+            method: 'GET',
+        });
+    }
+
+    async updatePayment(orderId: string, data: { paymentMethod: string, amountPaid?: number }) {
+        return this.request<{ message: string, order: any }>(`api/payments/order/${orderId}`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async getPaymentHistory(orderId: string) {
+        return this.request<any[]>(`api/payments/order/${orderId}`, {
             method: 'GET',
         });
     }
@@ -169,6 +226,27 @@ export interface CreateProductData {
     requiresStock: boolean;
     lowStockThreshold: number;
     images: string[];
+}
+
+export interface Customer {
+    _id: string;
+    name: string;
+    phone: string;
+    creditBalance: number;
+}
+
+export interface OrderItem {
+    product: string;
+    quantity: number;
+    remarks?: string;
+}
+
+export interface CreateOrderData {
+    customerName: string;
+    customerPhone: string;
+    items: OrderItem[];
+    total: number;
+    paymentMethod: string;
 }
 
 export const api = new ApiService(API_BASE_URL);

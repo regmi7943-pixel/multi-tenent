@@ -35,3 +35,4 @@ export type { PieChartData, PieChartProps } from './PieChart';
 export { AreaChart } from './AreaChart';
 export type { AreaChartData, AreaChartProps } from './AreaChart';
 
+export { CreateOrderForm } from './CreateOrderForm';

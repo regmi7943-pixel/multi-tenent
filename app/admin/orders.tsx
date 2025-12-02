@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, ScrollView, View } from 'react-native';
+import { Alert, Modal, RefreshControl, ScrollView, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/atoms/Button';
 import { Card } from '../../components/atoms/Card';
 import { Divider } from '../../components/atoms/Divider';
@@ -7,6 +8,10 @@ import { Text } from '../../components/atoms/Text';
 import { EmptyState } from '../../components/molecules/EmptyState';
 import { useTheme } from '../../hooks/useTheme';
 import { dashboardStyles } from '../../styles';
+
+import { useFocusEffect } from 'expo-router';
+import { CreateOrderForm } from '../../components/organisms/CreateOrderForm';
+import { api } from '../../services/api';
 
 export default function OrdersScreen() {
   const { theme } = useTheme();
@@ -16,90 +21,201 @@ export default function OrdersScreen() {
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [createOrderModalVisible, setCreateOrderModalVisible] = useState(false);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [ordersData, productsData, customersData] = await Promise.all([
+        api.getOrders(),
+        api.getProducts(),
+        api.getCustomers()
+      ]);
+
+      if (Array.isArray(ordersData)) {
+        setOrders(ordersData);
+      } else if (ordersData && (ordersData as any).orders) {
+        setOrders((ordersData as any).orders);
+      }
+
+      if (Array.isArray(productsData)) {
+        setProducts(productsData);
+      }
+
+      if (customersData && customersData.customers) {
+        setCustomers(customersData.customers);
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch data:', error);
+      const errorMsg = error?.message || 'Failed to fetch data';
+      setError(errorMsg);
+
+      // Show user-friendly alert
+      if (errorMsg.includes('Too many requests')) {
+        Alert.alert(
+          'Too Many Requests',
+          'The server is receiving too many requests. Please wait a moment and try again.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Error',
+          `Failed to load orders: ${errorMsg}`,
+          [{ text: 'OK' }]
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchData();
+    }, [])
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      await fetchData();
+    } catch (error) {
+      // Error is already handled in fetchData
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const statusOptions = ['Pending', 'In Progress', 'Completed', 'Cancelled'];
 
-  // Dummy user list (replace with API data)
-  const users = ['Test', 'Ram', 'Shyam', 'Hari', 'Customer'];
-
-  // Dummy order list (replace with API)
-  const orders = [
-    {
-      id: 1,
-      table: 1,
-      username: 'Test',
-      items: 'Fries x2 | Extra Spice',
-      status: 'Pending'
-    },
-    {
-      id: 2,
-      table: 4,
-      username: 'Ram',
-      items: 'Momo x1 | Coke x1',
-      status: 'Preparing'
-    }
-  ];
+  // Get unique customer names from customers list
+  const users = Array.from(new Set(customers.map(c => c.name))).sort();
 
   const filteredOrders = selectedFilter
-    ? orders.filter(o => o.username.toLowerCase() === selectedFilter.toLowerCase())
+    ? orders.filter(o => o.customerName?.toLowerCase() === selectedFilter.toLowerCase())
     : orders;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background, flex: 1 }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background, flex: 1 }]} edges={['top', 'left', 'right']}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
+      >
         <View style={styles.contentContainer}>
 
-          {/* Filter Button */}
-          <Button 
-            onPress={() => setFilterModalVisible(true)}
-            style={{ marginVertical: 10 }}
-          >
-            Filter Orders
-          </Button>
+          {/* Header Actions */}
+          <View style={{ flexDirection: 'row', gap: 10, marginVertical: 10 }}>
+            <Button
+              onPress={() => setFilterModalVisible(true)}
+              style={{ flex: 1, elevation: 0, shadowOpacity: 0 }}
+              variant="outline"
+            >
+              Filter Orders
+            </Button>
+            <Button
+              onPress={() => setCreateOrderModalVisible(true)}
+              style={{ flex: 1, elevation: 0, shadowOpacity: 0 }}
+            >
+              Create Order
+            </Button>
+          </View>
+
+          {/* Active Filter Indicator */}
+          {selectedFilter && (
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: theme.colors.primary + '20',
+              padding: 12,
+              borderRadius: 8,
+              marginBottom: 10
+            }}>
+              <Text style={{ color: theme.colors.primary, fontWeight: '500' }}>
+                Filtered by: {selectedFilter}
+              </Text>
+              <Button
+                variant="ghost"
+                onPress={() => setSelectedFilter(null)}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  elevation: 0,
+                  shadowOpacity: 0
+                }}
+                textStyle={{ color: theme.colors.primary, fontSize: 14 }}
+              >
+                Clear Filter
+              </Button>
+            </View>
+          )}
 
           {/* Orders List */}
-          {filteredOrders.length === 0 ? (
-            <EmptyState 
+          {loading ? (
+            <Text style={{ textAlign: 'center', marginTop: 20 }}>Loading orders...</Text>
+          ) : filteredOrders.length === 0 ? (
+            <EmptyState
               title="No orders found"
               description="There are no orders matching your criteria."
               icon="search"
             />
           ) : (
             filteredOrders.map((order, index) => (
-              <Card key={order.id} style={{ marginTop: index > 0 ? 16 : 0 }}>
-                <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
-                  Table: {order.table}
-                </Text>
+              <Card key={order._id} style={{ marginTop: index > 0 ? 16 : 0 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
+                    Order #{order._id.slice(-6)}
+                  </Text>
+                  <Text style={{
+                    color: order.paymentStatus === 'paid' ? theme.colors.success : theme.colors.warning,
+                    fontWeight: '500'
+                  }}>
+                    {order.paymentStatus?.toUpperCase() || 'PENDING'}
+                  </Text>
+                </View>
                 <Divider style={{ marginVertical: 8 }} />
-                <Text>Username: {order.username}</Text>
+                <Text>Customer: {order.customerName}</Text>
                 <Text style={{ marginTop: 4, color: theme.colors.textSecondary }}>
-                  Items: {order.items}
+                  Items: {order.items?.map((item: any) => `${item.product?.name || 'Item'} x${item.quantity}`).join(', ')}
                 </Text>
-                <Text style={{ marginTop: 4, color: theme.colors.textSecondary }}>
-                  Status: {order.status}
+                <Text style={{ marginTop: 4, fontWeight: 'bold' }}>
+                  Total: Rs. {order.total}
                 </Text>
 
                 <View style={{ flexDirection: 'row', marginTop: 12, gap: 8 }}>
-                  <Button 
-                    variant="outline" 
-                    style={{ 
+                  <Button
+                    variant="outline"
+                    style={{
                       flex: 1,
-                      elevation: 0, // Removes shadow on Android
-                      shadowOpacity: 0, // Removes shadow on iOS
-                      shadowRadius: 0, // Removes shadow on iOS
-                      shadowOffset: { width: 0, height: 0 }, // Removes shadow on iOS
+                      elevation: 0,
+                      shadowOpacity: 0
                     }}
                     onPress={() => {
                       setSelectedOrder(order);
                       setStatusModalVisible(true);
                     }}
                   >
-                    Update Status
+                    Update Payment
                   </Button>
-                  <Button 
-                    variant="danger" 
-                    style={{ flex: 1 }}
-                    onPress={() => console.log('Delete', order.id)}
+                  <Button
+                    variant="danger"
+                    style={{ flex: 1, elevation: 0, shadowOpacity: 0 }}
+                    onPress={() => console.log('Delete', order._id)}
                   >
                     Delete
                   </Button>
@@ -118,15 +234,15 @@ export default function OrdersScreen() {
         onRequestClose={() => setFilterModalVisible(false)}
       >
         <View style={[styles.modalContainer, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-          <View style={[styles.modalContent, { 
+          <View style={[styles.modalContent, {
             backgroundColor: theme.colors.background,
             elevation: 0,
             shadowOpacity: 0,
             borderWidth: 0
           }]}>
             <View style={styles.modalHeader}>
-              <Text style={{ 
-                fontSize: 18, 
+              <Text style={{
+                fontSize: 18,
                 fontWeight: '600',
                 color: theme.colors.text
               }}>
@@ -146,9 +262,9 @@ export default function OrdersScreen() {
                 Close
               </Button>
             </View>
-            
-            
-            
+
+
+
             <ScrollView style={{ maxHeight: 300 }}>
               {users
                 .filter(u => u.toLowerCase().includes(searchName.toLowerCase()))
@@ -169,7 +285,7 @@ export default function OrdersScreen() {
                         elevation: 0,
                         shadowOpacity: 0
                       }}
-                      textStyle={{ 
+                      textStyle={{
                         color: theme.colors.text,
                         textAlign: 'left',
                         fontWeight: '400'
@@ -184,6 +300,53 @@ export default function OrdersScreen() {
         </View>
       </Modal>
 
+      {/* Create Order Modal */}
+      <Modal
+        visible={createOrderModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCreateOrderModalVisible(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.modalContent, {
+            backgroundColor: theme.colors.background,
+            height: '90%',
+            width: '95%',
+            maxWidth: 600,
+          }]}>
+            <View style={styles.modalHeader}>
+              <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.text }}>
+                Create POS Order
+              </Text>
+              <Button
+                variant="ghost"
+                onPress={() => setCreateOrderModalVisible(false)}
+                style={{ elevation: 0, shadowOpacity: 0 }}
+                textStyle={{ color: theme.colors.primary }}
+              >
+                Close
+              </Button>
+            </View>
+
+            <CreateOrderForm
+              products={products}
+              customers={customers}
+              onSubmit={async (data: any) => {
+                try {
+                  await api.createPOSOrder(data);
+                  setCreateOrderModalVisible(false);
+                  fetchData();
+                } catch (error) {
+                  console.error('Failed to create order:', error);
+                  alert('Failed to create order');
+                }
+              }}
+              theme={theme}
+            />
+          </View>
+        </View>
+      </Modal>
+
       {/* Status Update Modal */}
       <Modal
         visible={statusModalVisible}
@@ -192,7 +355,7 @@ export default function OrdersScreen() {
         onRequestClose={() => setStatusModalVisible(false)}
       >
         <View style={[styles.modalContainer, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-          <View style={[styles.modalContent, { 
+          <View style={[styles.modalContent, {
             backgroundColor: theme.colors.background,
             elevation: 0,
             shadowOpacity: 0,
@@ -202,12 +365,12 @@ export default function OrdersScreen() {
             maxWidth: 400,
           }]}>
             <View style={styles.modalHeader}>
-              <Text style={{ 
-                fontSize: 18, 
+              <Text style={{
+                fontSize: 18,
                 fontWeight: '600',
                 color: theme.colors.text
               }}>
-                Update Order Status
+                Update Payment
               </Text>
               <Button
                 variant="ghost"
@@ -223,63 +386,45 @@ export default function OrdersScreen() {
                 Close
               </Button>
             </View>
-            
-            <View style={{ marginTop: 16 }}>
-              {statusOptions.map((status) => (
-                <React.Fragment key={status}>
-                  <Button
-                    variant="ghost"
-                    onPress={() => {
-                      // Here you would typically update the order status in your state/API
-                      console.log(`Updating order ${selectedOrder?.id} to status: ${status}`);
-                      // Update the order status in your state here
-                      setStatusModalVisible(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      justifyContent: 'flex-start',
-                      paddingVertical: 16,
-                      paddingHorizontal: 8,
-                      borderWidth: 0,
-                      elevation: 0,
-                      shadowOpacity: 0,
-                      backgroundColor: 'transparent'
-                    }}
-                    textStyle={{ 
-                      color: status === 'Cancelled' ? '#FF3B30' : theme.colors.text,
-                      textAlign: 'left',
-                      fontSize: 16
-                    }}
-                  >
-                    {status}
-                  </Button>
-                </React.Fragment>
-              ))}
-              
+
+            <View style={{ marginTop: 16, gap: 10 }}>
               <Button
-                variant="ghost"
-                onPress={() => setStatusModalVisible(false)}
-                style={{
-                  marginTop: 8,
-                  elevation: 0,
-                  shadowOpacity: 0,
-                  borderWidth: 0,
-                  backgroundColor: 'transparent'
+                onPress={async () => {
+                  try {
+                    await api.updatePayment(selectedOrder._id, { paymentMethod: 'cash', amountPaid: selectedOrder.total });
+                    setStatusModalVisible(false);
+                    fetchData();
+                  } catch (error) {
+                    console.error('Failed to update payment:', error);
+                    alert('Failed to update payment');
+                  }
                 }}
-                textStyle={{ 
-                  color: '#FF3B30',
-                  fontWeight: '500',
-                  fontSize: 16
-                }}
+                style={{ elevation: 0, shadowOpacity: 0 }}
               >
-                Cancel
+                Mark as Paid (Cash)
+              </Button>
+              <Button
+                variant="outline"
+                onPress={async () => {
+                  try {
+                    await api.updatePayment(selectedOrder._id, { paymentMethod: 'credit' });
+                    setStatusModalVisible(false);
+                    fetchData();
+                  } catch (error) {
+                    console.error('Failed to update payment:', error);
+                    alert('Failed to update payment');
+                  }
+                }}
+                style={{ elevation: 0, shadowOpacity: 0 }}
+              >
+                Mark as Credit
               </Button>
             </View>
           </View>
         </View>
       </Modal>
-      
-    </View>
+
+    </SafeAreaView>
   );
 }
 

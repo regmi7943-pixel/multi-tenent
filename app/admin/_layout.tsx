@@ -16,120 +16,120 @@ export default function AdminLayout() {
     // If mobile, use the Tab layout
     if (isMobile) {
         return (
-            <SafeAreaView style={{ flex: 1 }} edges={[ 'left', 'right','bottom']}>
-                         <Tabs
-                screenOptions={{
-                    tabBarActiveTintColor: theme.colors.primary,
-                    tabBarInactiveTintColor: theme.colors.textSecondary,
-                    tabBarStyle: {
-                        backgroundColor: theme.colors.surface,
-                        height: 70,
-                        borderTopWidth: 0,
-                        paddingBottom: 10,
-                        paddingTop: 10,
-                        elevation: 0, // Remove elevation
-                        shadowOpacity: 0, // Remove shadow
-                    },
-                    tabBarItemStyle: {
-                        height: 50,
-                        padding: 5,
-                    },
-                    tabBarLabelStyle: {
-                        fontSize: 10,
-                        fontWeight: '600',
-                        marginTop: 2,
-                    },
-                    headerShown: false,
-                }}
-            >
-                <Tabs.Screen
-                    name="index"
-                    options={{
-                        title: 'Home',
-                        tabBarIcon: ({ color, size, focused }) => (
-                            <View style={focused ? {
-                                shadowColor: theme.colors.primary,
-                                shadowOffset: { width: 0, height: 0 },
-                                shadowOpacity: 0.8,
-                                shadowRadius: 8,
-                                elevation: 5,
-                            } : undefined}>
-                                <Ionicons name="home-outline" size={size} color={color} />
-                            </View>
-                        ),
+            <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
+                <Tabs
+                    screenOptions={{
+                        tabBarActiveTintColor: theme.colors.primary,
+                        tabBarInactiveTintColor: theme.colors.textSecondary,
+                        tabBarStyle: {
+                            backgroundColor: theme.colors.surface,
+                            height: 70,
+                            borderTopWidth: 0,
+                            paddingBottom: 10,
+                            paddingTop: 10,
+                            elevation: 0, // Remove elevation
+                            shadowOpacity: 0, // Remove shadow
+                        },
+                        tabBarItemStyle: {
+                            height: 50,
+                            padding: 5,
+                        },
+                        tabBarLabelStyle: {
+                            fontSize: 10,
+                            fontWeight: '600',
+                            marginTop: 2,
+                        },
+                        headerShown: false,
                     }}
-                />
-                <Tabs.Screen
-                    name="orders"
-                    options={{
-                        title: 'Orders',
-                        tabBarIcon: ({ color, size, focused }) => (
-                            <View style={focused ? {
-                                shadowColor: theme.colors.primary,
-                                shadowOffset: { width: 0, height: 0 },
-                                shadowOpacity: 0.8,
-                                shadowRadius: 8,
-                                elevation: 5,
-                            } : undefined}>
-                                <Ionicons name="cart-outline" size={size} color={color} />
-                            </View>
-                        ),
-                    }}
-                />
-                <Tabs.Screen
-                    name="inventory"
-                    options={{
-                        title: 'Inventory',
-                        tabBarIcon: ({ color, size, focused }) => (
-                            <View style={focused ? {
-                                shadowColor: theme.colors.primary,
-                                shadowOffset: { width: 0, height: 0 },
-                                shadowOpacity: 0.8,
-                                shadowRadius: 8,
-                                elevation: 5,
-                            } : undefined}>
-                                <Ionicons name="cube-outline" size={size} color={color} />
-                            </View>
-                        ),
-                    }}
-                />
-                <Tabs.Screen
-                    name="profile"
-                    options={{
-                        title: 'Profile',
-                        tabBarIcon: ({ color, size, focused }) => (
-                            <View style={focused ? {
-                                shadowColor: theme.colors.primary,
-                                shadowOffset: { width: 0, height: 0 },
-                                shadowOpacity: 0.8,
-                                shadowRadius: 8,
-                                elevation: 5,
-                            } : undefined}>
-                                <Ionicons name="person-outline" size={size} color={color} />
-                            </View>
-                        ),
-                    }}
-                />
-                <Tabs.Screen
-                    name="settings"
-                    options={{
-                        title: 'Settings',
-                        tabBarIcon: ({ color, size, focused }) => (
-                            <View style={focused ? {
-                                shadowColor: theme.colors.primary,
-                                shadowOffset: { width: 0, height: 0 },
-                                shadowOpacity: 0.8,
-                                shadowRadius: 8,
-                                elevation: 5,
-                            } : undefined}>
-                                <Ionicons name="settings-outline" size={size} color={color} />
-                            </View>
-                        ),
-                    }}
-                />
-            </Tabs>
+                >
+                    <Tabs.Screen
+                        name="index"
+                        options={{
+                            title: 'Home',
+                            tabBarIcon: ({ color, size, focused }) => (
+                                <View style={focused ? {
+                                    shadowColor: theme.colors.primary,
+                                    shadowOffset: { width: 0, height: 0 },
+                                    shadowOpacity: 0.8,
+                                    shadowRadius: 8,
+                                    elevation: 5,
+                                } : undefined}>
+                                    <Ionicons name="home-outline" size={size} color={color} />
+                                </View>
+                            ),
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="orders"
+                        options={{
+                            title: 'Orders',
+                            tabBarIcon: ({ color, size, focused }) => (
+                                <View style={focused ? {
+                                    shadowColor: theme.colors.primary,
+                                    shadowOffset: { width: 0, height: 0 },
+                                    shadowOpacity: 0.8,
+                                    shadowRadius: 8,
+                                    elevation: 5,
+                                } : undefined}>
+                                    <Ionicons name="cart-outline" size={size} color={color} />
+                                </View>
+                            ),
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="inventory"
+                        options={{
+                            title: 'Inventory',
+                            tabBarIcon: ({ color, size, focused }) => (
+                                <View style={focused ? {
+                                    shadowColor: theme.colors.primary,
+                                    shadowOffset: { width: 0, height: 0 },
+                                    shadowOpacity: 0.8,
+                                    shadowRadius: 8,
+                                    elevation: 5,
+                                } : undefined}>
+                                    <Ionicons name="cube-outline" size={size} color={color} />
+                                </View>
+                            ),
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="profile"
+                        options={{
+                            title: 'Profile',
+                            tabBarIcon: ({ color, size, focused }) => (
+                                <View style={focused ? {
+                                    shadowColor: theme.colors.primary,
+                                    shadowOffset: { width: 0, height: 0 },
+                                    shadowOpacity: 0.8,
+                                    shadowRadius: 8,
+                                    elevation: 5,
+                                } : undefined}>
+                                    <Ionicons name="person-outline" size={size} color={color} />
+                                </View>
+                            ),
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="settings"
+                        options={{
+                            title: 'Settings',
+                            tabBarIcon: ({ color, size, focused }) => (
+                                <View style={focused ? {
+                                    shadowColor: theme.colors.primary,
+                                    shadowOffset: { width: 0, height: 0 },
+                                    shadowOpacity: 0.8,
+                                    shadowRadius: 8,
+                                    elevation: 5,
+                                } : undefined}>
+                                    <Ionicons name="settings-outline" size={size} color={color} />
+                                </View>
+                            ),
+                        }}
+                    />
+                </Tabs>
             </SafeAreaView>
-           
+
         );
     }
 
