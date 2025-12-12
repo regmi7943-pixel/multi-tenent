@@ -145,32 +145,24 @@ class ApiService {
 
     async getOrders() {
         try {
-            // Try to fetch from a standard endpoint first, if it exists
-            // But since api/orders/pos failed, and we only have customer endpoints documented:
-            const customersData = await this.getCustomers();
-            if (!customersData?.customers) return [];
-
-            const ordersPromises = customersData.customers.map(c => this.getCustomerById(c._id));
-            const customersWithOrders = await Promise.all(ordersPromises);
-
-            // Flatten orders and add customer name
-            const allOrders = customersWithOrders.flatMap(c => {
-                if (!c.orders) return [];
-                return c.orders.map(order => ({
-                    ...order,
-                    customerName: c.customer.name,
-                    customerPhone: c.customer.phone
-                }));
-            });
-
-            // Sort by date if possible (assuming _id or createdAt)
-            return allOrders.sort((a, b) => {
-                const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                return dateB - dateA;
+            // Use direct admin orders endpoint
+            return this.request<any[]>('api/orders/admin/orders', {
+                method: 'GET',
             });
         } catch (error) {
-            console.error('Error fetching orders via customers:', error);
+            console.error('Error fetching admin orders:', error);
+            throw error;
+        }
+    }
+
+    async getMyOrders() {
+        try {
+            // Use endpoint for orders created by the authenticated user
+            return this.request<any[]>('api/orders/my', {
+                method: 'GET',
+            });
+        } catch (error) {
+            console.error('Error fetching my orders:', error);
             throw error;
         }
     }
@@ -270,6 +262,7 @@ export interface CreateOrderData {
     items: OrderItem[];
     total: number;
     paymentMethod: string;
+    placedBy?: string;
 }
 
 export interface Order {

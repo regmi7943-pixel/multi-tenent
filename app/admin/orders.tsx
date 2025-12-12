@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Alert, Modal, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/atoms/Button';
 import { Card } from '../../components/atoms/Card';
 import { Divider } from '../../components/atoms/Divider';
+import { Input } from '../../components/atoms/Input';
 import { Text } from '../../components/atoms/Text';
 import { EmptyState } from '../../components/molecules/EmptyState';
 import { useTheme } from '../../hooks/useTheme';
@@ -17,10 +18,12 @@ export default function OrdersScreen() {
   const { theme } = useTheme();
 
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
-  const [searchName, setSearchName] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+  // const [searchName, setSearchName] = useState(''); // Removed
+  // const [selectedFilter, setSelectedFilter] = useState<string | null>(null); // Removed
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'pos' | 'waiter-app'>('all');
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
   const [createOrderModalVisible, setCreateOrderModalVisible] = useState(false);
   const [orders, setOrders] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -29,15 +32,43 @@ export default function OrdersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  // Prevent duplicate requests
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+  const hasInitiallyLoadedRef = useRef(false);
+
+  const fetchData = async (force: boolean = false, filter: 'all' | 'pos' | 'waiter-app' = sourceFilter) => {
+    // Prevent duplicate simultaneous requests
+    if (isFetchingRef.current) {
+      console.log('Fetch already in progress, skipping...');
+      return;
+    }
+
+    // Prevent fetching too frequently (minimum 30 seconds between auto-fetches)
+    const now = Date.now();
+    const timeSinceLastFetch = now - lastFetchTimeRef.current;
+    if (!force && timeSinceLastFetch < 30000 && lastFetchTimeRef.current > 0) {
+      console.log(`Last fetch was ${Math.round(timeSinceLastFetch / 1000)}s ago, skipping...`);
+      return;
+    }
+
     try {
+      isFetchingRef.current = true;
       setLoading(true);
       setError(null);
+
+      // Choose endpoint based on filter
+      const ordersPromise = filter === 'waiter-app'
+        ? api.getMyOrders()
+        : api.getOrders();
+
       const [ordersData, productsData, customersData] = await Promise.all([
-        api.getOrders(),
+        ordersPromise,
         api.getProducts(),
         api.getCustomers()
       ]);
+
+      lastFetchTimeRef.current = Date.now();
 
       if (Array.isArray(ordersData)) {
         setOrders(ordersData);
@@ -73,20 +104,32 @@ export default function OrdersScreen() {
       }
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
+  // Only fetch on initial mount, not on every focus
   useFocusEffect(
     React.useCallback(() => {
-      fetchData();
+      if (!hasInitiallyLoadedRef.current) {
+        hasInitiallyLoadedRef.current = true;
+        fetchData(true);
+      }
     }, [])
   );
+
+  // Refetch when source filter changes
+  React.useEffect(() => {
+    if (hasInitiallyLoadedRef.current) {
+      fetchData(true, sourceFilter);
+    }
+  }, [sourceFilter]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     setError(null);
     try {
-      await fetchData();
+      await fetchData(true); // Force fetch on manual refresh
     } catch (error) {
       // Error is already handled in fetchData
     } finally {
@@ -96,12 +139,18 @@ export default function OrdersScreen() {
 
   const statusOptions = ['Pending', 'In Progress', 'Completed', 'Cancelled'];
 
-  // Get unique customer names from customers list
-  const users = Array.from(new Set(customers.map(c => c.name))).sort();
+  // Removed users calculation
 
-  const filteredOrders = selectedFilter
-    ? orders.filter(o => o.customerName?.toLowerCase() === selectedFilter.toLowerCase())
-    : orders;
+  const filteredOrders = orders.filter(o => {
+    // If we fetched waiter orders, no need to filter
+    if (sourceFilter === 'waiter-app') return true;
+
+    // If showing all, show everything
+    if (sourceFilter === 'all') return true;
+
+    // If showing POS only, filter by source
+    return o.source === sourceFilter;
+  });
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background, flex: 1 }]} edges={['top', 'left', 'right']}>
@@ -136,7 +185,7 @@ export default function OrdersScreen() {
           </View>
 
           {/* Active Filter Indicator */}
-          {selectedFilter && (
+          {(sourceFilter !== 'all') && (
             <View style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -147,11 +196,13 @@ export default function OrdersScreen() {
               marginBottom: 10
             }}>
               <Text style={{ color: theme.colors.primary, fontWeight: '500' }}>
-                Filtered by: {selectedFilter}
+                Filtered by: {sourceFilter === 'pos' ? 'Admin' : 'Waiter'}
               </Text>
               <Button
                 variant="ghost"
-                onPress={() => setSelectedFilter(null)}
+                onPress={() => {
+                  setSourceFilter('all');
+                }}
                 style={{
                   paddingHorizontal: 12,
                   paddingVertical: 6,
@@ -175,53 +226,72 @@ export default function OrdersScreen() {
               icon="search"
             />
           ) : (
-            filteredOrders.map((order, index) => (
-              <Card key={order._id} style={{ marginTop: index > 0 ? 16 : 0 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
-                    Order #{order._id.slice(-6)}
+            filteredOrders.map((order, index) => {
+              // Debug: Log first order to see structure
+              if (index === 0) {
+                console.log('First order structure:', JSON.stringify(order, null, 2));
+              }
+              return (
+                <Card key={order._id} style={{ marginTop: index > 0 ? 16 : 0 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
+                      Order #{order._id.slice(-6)}
+                    </Text>
+                    <Text style={{
+                      color: order.paymentStatus === 'paid' ? theme.colors.success : theme.colors.warning,
+                      fontWeight: '500'
+                    }}>
+                      {order.paymentStatus?.toUpperCase() || 'PENDING'}
+                    </Text>
+                  </View>
+                  <Divider style={{ marginVertical: 8 }} />
+                  {/* Display table number for waiter orders, customer name for admin orders */}
+                  {order.source === 'waiter-app' ? (
+                    <Text>Table: {order.tableNo || 'N/A'}</Text>
+                  ) : (
+                    <Text>Customer: {order.customerName || 'N/A'}</Text>
+                  )}
+                  <Text style={{ marginTop: 4, color: theme.colors.textSecondary }}>
+                    Items: {order.items?.map((item: any) => {
+                      const itemText = `${item.product?.name || 'Item'} x${item.quantity}`;
+                      return item.remarks ? `${itemText} (${item.remarks})` : itemText;
+                    }).join(', ')}
                   </Text>
-                  <Text style={{
-                    color: order.paymentStatus === 'paid' ? theme.colors.success : theme.colors.warning,
-                    fontWeight: '500'
-                  }}>
-                    {order.paymentStatus?.toUpperCase() || 'PENDING'}
+                  {order.remarks && (
+                    <Text style={{ marginTop: 4, color: theme.colors.textSecondary, fontStyle: 'italic' }}>
+                      Note: {order.remarks}
+                    </Text>
+                  )}
+                  <Text style={{ marginTop: 4, fontWeight: 'bold' }}>
+                    Total: Rs. {order.total}
                   </Text>
-                </View>
-                <Divider style={{ marginVertical: 8 }} />
-                <Text>Customer: {order.customerName}</Text>
-                <Text style={{ marginTop: 4, color: theme.colors.textSecondary }}>
-                  Items: {order.items?.map((item: any) => `${item.product?.name || 'Item'} x${item.quantity}`).join(', ')}
-                </Text>
-                <Text style={{ marginTop: 4, fontWeight: 'bold' }}>
-                  Total: Rs. {order.total}
-                </Text>
 
-                <View style={{ flexDirection: 'row', marginTop: 12, gap: 8 }}>
-                  <Button
-                    variant="outline"
-                    style={{
-                      flex: 1,
-                      elevation: 0,
-                      shadowOpacity: 0
-                    }}
-                    onPress={() => {
-                      setSelectedOrder(order);
-                      setStatusModalVisible(true);
-                    }}
-                  >
-                    Update Payment
-                  </Button>
-                  <Button
-                    variant="danger"
-                    style={{ flex: 1, elevation: 0, shadowOpacity: 0 }}
-                    onPress={() => console.log('Delete', order._id)}
-                  >
-                    Delete
-                  </Button>
-                </View>
-              </Card>
-            ))
+                  <View style={{ flexDirection: 'row', marginTop: 12, gap: 8 }}>
+                    <Button
+                      variant="outline"
+                      style={{
+                        flex: 1,
+                        elevation: 0,
+                        shadowOpacity: 0
+                      }}
+                      onPress={() => {
+                        setSelectedOrder(order);
+                        setStatusModalVisible(true);
+                      }}
+                    >
+                      Update Payment
+                    </Button>
+                    <Button
+                      variant="danger"
+                      style={{ flex: 1, elevation: 0, shadowOpacity: 0 }}
+                      onPress={() => console.log('Delete', order._id)}
+                    >
+                      Delete
+                    </Button>
+                  </View>
+                </Card>
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -233,7 +303,7 @@ export default function OrdersScreen() {
         transparent
         onRequestClose={() => setFilterModalVisible(false)}
       >
-        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-start', paddingTop: 60 }]}>
           <View style={[styles.modalContent, {
             backgroundColor: theme.colors.background,
             elevation: 0,
@@ -246,7 +316,7 @@ export default function OrdersScreen() {
                 fontWeight: '600',
                 color: theme.colors.text
               }}>
-                Filter by User
+                Filter by Source
               </Text>
               <Button
                 variant="ghost"
@@ -265,37 +335,37 @@ export default function OrdersScreen() {
 
 
 
-            <ScrollView style={{ maxHeight: 300 }}>
-              {users
-                .filter(u => u.toLowerCase().includes(searchName.toLowerCase()))
-                .map((name, index) => (
-                  <React.Fragment key={name}>
-                    <Button
-                      variant="ghost"
-                      onPress={() => {
-                        setSelectedFilter(name);
-                        setFilterModalVisible(false);
-                      }}
-                      style={{
-                        width: '100%',
-                        justifyContent: 'flex-start',
-                        paddingVertical: 12,
-                        paddingHorizontal: 8,
-                        borderWidth: 0,
-                        elevation: 0,
-                        shadowOpacity: 0
-                      }}
-                      textStyle={{
-                        color: theme.colors.text,
-                        textAlign: 'left',
-                        fontWeight: '400'
-                      }}
-                    >
-                      {name}
-                    </Button>
-                  </React.Fragment>
-                ))}
-            </ScrollView>
+            <View style={{ marginBottom: 20 }}>
+
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Button
+                  variant={sourceFilter === 'all' ? 'primary' : 'outline'}
+                  onPress={() => setSourceFilter('all')}
+                  style={{ flex: 1, paddingVertical: 8 }}
+                  textStyle={{ fontSize: 12 }}
+                >
+                  All
+                </Button>
+                <Button
+                  variant={sourceFilter === 'pos' ? 'primary' : 'outline'}
+                  onPress={() => setSourceFilter('pos')}
+                  style={{ flex: 1, paddingVertical: 8 }}
+                  textStyle={{ fontSize: 12 }}
+                >
+                  Admin
+                </Button>
+                <Button
+                  variant={sourceFilter === 'waiter-app' ? 'primary' : 'outline'}
+                  onPress={() => setSourceFilter('waiter-app')}
+                  style={{ flex: 1, paddingVertical: 8 }}
+                  textStyle={{ fontSize: 12 }}
+                >
+                  Waiter
+                </Button>
+              </View>
+            </View>
+
+
           </View>
         </View>
       </Modal>
@@ -335,13 +405,14 @@ export default function OrdersScreen() {
                 try {
                   await api.createPOSOrder(data);
                   setCreateOrderModalVisible(false);
-                  fetchData();
+                  fetchData(true); // Force refresh after creating new order
                 } catch (error) {
                   console.error('Failed to create order:', error);
                   alert('Failed to create order');
                 }
               }}
               theme={theme}
+              userRole={api.getUser()?.role}
             />
           </View>
         </View>
@@ -352,7 +423,10 @@ export default function OrdersScreen() {
         visible={statusModalVisible}
         animationType="fade"
         transparent
-        onRequestClose={() => setStatusModalVisible(false)}
+        onRequestClose={() => {
+          setStatusModalVisible(false);
+          setPaymentAmount('');
+        }}
       >
         <View style={[styles.modalContainer, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
           <View style={[styles.modalContent, {
@@ -374,7 +448,10 @@ export default function OrdersScreen() {
               </Text>
               <Button
                 variant="ghost"
-                onPress={() => setStatusModalVisible(false)}
+                onPress={() => {
+                  setStatusModalVisible(false);
+                  setPaymentAmount('');
+                }}
                 style={{
                   marginLeft: 'auto',
                   paddingHorizontal: 8,
@@ -387,39 +464,166 @@ export default function OrdersScreen() {
               </Button>
             </View>
 
-            <View style={{ marginTop: 16, gap: 10 }}>
-              <Button
-                onPress={async () => {
-                  try {
-                    await api.updatePayment(selectedOrder._id, { paymentMethod: 'cash', amountPaid: selectedOrder.total });
-                    setStatusModalVisible(false);
-                    fetchData();
-                  } catch (error) {
-                    console.error('Failed to update payment:', error);
-                    alert('Failed to update payment');
-                  }
-                }}
-                style={{ elevation: 0, shadowOpacity: 0 }}
-              >
-                Mark as Paid (Cash)
-              </Button>
-              <Button
-                variant="outline"
-                onPress={async () => {
-                  try {
-                    await api.updatePayment(selectedOrder._id, { paymentMethod: 'credit' });
-                    setStatusModalVisible(false);
-                    fetchData();
-                  } catch (error) {
-                    console.error('Failed to update payment:', error);
-                    alert('Failed to update payment');
-                  }
-                }}
-                style={{ elevation: 0, shadowOpacity: 0 }}
-              >
-                Mark as Credit
-              </Button>
-            </View>
+            {selectedOrder && (
+              <>
+                {/* Order Summary */}
+                <View style={{
+                  backgroundColor: theme.colors.surface,
+                  padding: 12,
+                  borderRadius: 8,
+                  marginBottom: 16
+                }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ color: theme.colors.textSecondary }}>Order Total:</Text>
+                    <Text style={{ fontWeight: '600' }}>Rs. {selectedOrder.total}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ color: theme.colors.textSecondary }}>Amount Paid:</Text>
+                    <Text style={{ fontWeight: '600' }}>Rs. {selectedOrder.amountPaid || 0}</Text>
+                  </View>
+                  <Divider style={{ marginVertical: 8 }} />
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontWeight: 'bold' }}>Remaining:</Text>
+                    <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>
+                      Rs. {selectedOrder.total - (selectedOrder.amountPaid || 0)}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                    <Text style={{ color: theme.colors.textSecondary }}>Status:</Text>
+                    <Text style={{
+                      fontWeight: '600',
+                      color: selectedOrder.paymentStatus === 'paid' ? theme.colors.success :
+                        selectedOrder.paymentStatus === 'partial' ? theme.colors.warning :
+                          theme.colors.error
+                    }}>
+                      {selectedOrder.paymentStatus?.toUpperCase() || 'PENDING'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Only show payment options for admin orders with customers */}
+                {selectedOrder.source === 'pos' && (
+                  <>
+                    {/* Cash Payment Section */}
+                    <Text variant="label" style={{ marginBottom: 8 }}>Cash Payment</Text>
+                    <Input
+                      value={paymentAmount}
+                      onChangeText={setPaymentAmount}
+                      placeholder={`Enter amount (Max: Rs. ${selectedOrder.total - (selectedOrder.amountPaid || 0)})`}
+                      keyboardType="numeric"
+                      containerStyle={{ marginBottom: 12 }}
+                    />
+
+                    <View style={{ gap: 10 }}>
+                      {/* Pay Custom Amount */}
+                      <Button
+                        onPress={async () => {
+                          const amount = parseFloat(paymentAmount);
+                          if (!amount || amount <= 0) {
+                            Alert.alert('Error', 'Please enter a valid amount');
+                            return;
+                          }
+                          const remaining = selectedOrder.total - (selectedOrder.amountPaid || 0);
+                          if (amount > remaining) {
+                            Alert.alert('Error', `Amount cannot exceed remaining balance of Rs. ${remaining}`);
+                            return;
+                          }
+                          try {
+                            await api.updatePayment(selectedOrder._id, {
+                              paymentMethod: 'cash',
+                              amountPaid: amount
+                            });
+                            setStatusModalVisible(false);
+                            setPaymentAmount('');
+                            Alert.alert('Success', 'Payment updated successfully. Pull down to refresh the list.');
+                          } catch (error) {
+                            console.error('Failed to update payment:', error);
+                            Alert.alert('Error', 'Failed to update payment');
+                          }
+                        }}
+                        style={{ elevation: 0, shadowOpacity: 0 }}
+                      >
+                        Pay Partial Amount
+                      </Button>
+
+                      {/* Pay Full Amount (Cash) */}
+                      {(selectedOrder.amountPaid || 0) < selectedOrder.total && (
+                        <Button
+                          variant="outline"
+                          onPress={async () => {
+                            const remaining = selectedOrder.total - (selectedOrder.amountPaid || 0);
+                            try {
+                              await api.updatePayment(selectedOrder._id, {
+                                paymentMethod: 'cash',
+                                amountPaid: remaining
+                              });
+                              setStatusModalVisible(false);
+                              setPaymentAmount('');
+                              Alert.alert('Success', 'Payment updated successfully. Pull down to refresh the list.');
+                            } catch (error) {
+                              console.error('Failed to update payment:', error);
+                              Alert.alert('Error', 'Failed to update payment');
+                            }
+                          }}
+                          style={{ elevation: 0, shadowOpacity: 0 }}
+                        >
+                          Pay Full Amount (Rs. {selectedOrder.total - (selectedOrder.amountPaid || 0)})
+                        </Button>
+                      )}
+
+                      <Divider style={{ marginVertical: 8 }} />
+
+                      {/* Add to Credit */}
+                      <Button
+                        variant="outline"
+                        onPress={async () => {
+                          try {
+                            await api.updatePayment(selectedOrder._id, { paymentMethod: 'credit' });
+                            setStatusModalVisible(false);
+                            setPaymentAmount('');
+                            Alert.alert('Success', 'Order added to customer credit. Pull down to refresh the list.');
+                          } catch (error) {
+                            console.error('Failed to update payment:', error);
+                            Alert.alert('Error', 'Failed to update payment');
+                          }
+                        }}
+                        style={{ elevation: 0, shadowOpacity: 0 }}
+                        textStyle={{ color: theme.colors.warning }}
+                      >
+                        Add Remaining to Credit
+                      </Button>
+                    </View>
+                  </>
+                )}
+
+                {/* Waiter orders - simpler payment options */}
+                {selectedOrder.source === 'waiter-app' && (
+                  <View style={{ gap: 10 }}>
+                    <Text variant="caption" style={{ color: theme.colors.textSecondary, marginBottom: 8 }}>
+                      This is a waiter order. Payment tracking is limited.
+                    </Text>
+                    <Button
+                      onPress={async () => {
+                        try {
+                          await api.updatePayment(selectedOrder._id, {
+                            paymentMethod: 'cash',
+                            amountPaid: selectedOrder.total
+                          });
+                          setStatusModalVisible(false);
+                          Alert.alert('Success', 'Payment updated successfully. Pull down to refresh the list.');
+                        } catch (error) {
+                          console.error('Failed to update payment:', error);
+                          Alert.alert('Error', 'Failed to update payment');
+                        }
+                      }}
+                      style={{ elevation: 0, shadowOpacity: 0 }}
+                    >
+                      Mark as Paid (Cash)
+                    </Button>
+                  </View>
+                )}
+              </>
+            )}
           </View>
         </View>
       </Modal>
