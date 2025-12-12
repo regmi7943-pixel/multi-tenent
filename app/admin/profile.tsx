@@ -8,6 +8,7 @@ import { Card } from '../../components/atoms/Card';
 import { Heading } from '../../components/atoms/Heading';
 import { Switch } from '../../components/atoms/Switch';
 import { Text } from '../../components/atoms/Text';
+import { CreateWaiterModal } from '../../components/molecules/CreateWaiterModal';
 import { useTheme } from '../../hooks/useTheme';
 import { api, Product } from '../../services/api';
 
@@ -18,6 +19,7 @@ export default function ProfileScreen() {
 
     const [products, setProducts] = useState<Product[]>([]);
     const [statsLoading, setStatsLoading] = useState(true);
+    const [showWaiterModal, setShowWaiterModal] = useState(false);
 
     useEffect(() => {
         fetchStats();
@@ -227,6 +229,39 @@ export default function ProfileScreen() {
                         <Switch value={isDark} onValueChange={toggleTheme} />
                     </Card>
 
+                    {/* Make New Waiter */}
+                    <TouchableOpacity onPress={() => setShowWaiterModal(true)}>
+                        <Card style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: theme.spacing.sm,
+                        }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                <View style={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: 20,
+                                    backgroundColor: theme.colors.success + '15',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginRight: theme.spacing.md,
+                                }}>
+                                    <Ionicons name="person-add-outline" size={20} color={theme.colors.success} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ fontWeight: '600', color: theme.colors.text }}>
+                                        Make New Waiter
+                                    </Text>
+                                    <Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }}>
+                                        Create a new waiter account
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                        </Card>
+                    </TouchableOpacity>
+
                     {/* Account Settings */}
                     <TouchableOpacity onPress={() => router.push('/admin/settings')}>
                         <Card style={{
@@ -282,6 +317,15 @@ export default function ProfileScreen() {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
+
+            {/* Create Waiter Modal */}
+            <CreateWaiterModal
+                visible={showWaiterModal}
+                onClose={() => setShowWaiterModal(false)}
+                onSuccess={() => {
+                    // Optional: refresh stats or show additional feedback
+                }}
+            />
         </View>
     );
 }

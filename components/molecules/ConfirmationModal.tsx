@@ -17,6 +17,7 @@ export interface ConfirmationModalProps {
     cancelText?: string;
     variant?: 'default' | 'danger';
     style?: ViewStyle;
+    showCancel?: boolean;
 }
 
 export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -29,6 +30,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     cancelText = 'Cancel',
     variant = 'default',
     style,
+    showCancel = true,
 }) => {
     const { theme } = useTheme();
     const { isMobile } = useResponsive();
@@ -75,18 +77,20 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                                 { gap: theme.spacing.sm },
                             ]}
                         >
-                            <Button
-                                variant="outline"
-                                onPress={onClose}
-                                style={isMobile ? styles.buttonMobile : styles.buttonDesktop}
-                            >
-                                {cancelText}
-                            </Button>
+                            {showCancel && (
+                                <Button
+                                    variant="outline"
+                                    onPress={onClose}
+                                    style={isMobile ? styles.buttonMobile : styles.buttonDesktop}
+                                >
+                                    {cancelText}
+                                </Button>
+                            )}
                             <Button
                                 variant={variant === 'danger' ? 'danger' : 'primary'}
                                 onPress={() => {
                                     onConfirm();
-                                    onClose();
+                                    if (!showCancel) onClose(); // Auto-close if acting as alert
                                 }}
                                 style={isMobile ? styles.buttonMobile : styles.buttonDesktop}
                             >

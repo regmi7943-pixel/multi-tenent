@@ -181,6 +181,29 @@ class ApiService {
         });
     }
 
+    async createWaiterOrder(data: any) {
+        return this.request<any>('api/orders/waiter', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async getWaiterOrders(): Promise<Order[]> {
+        try {
+            // Fetch waiter's specific orders
+            const response = await this.request<any>('api/orders/my', {
+                method: 'GET',
+            });
+
+            // Handle response wrapper if exists (e.g. { orders: [...] } or just [...])
+            const orders = Array.isArray(response) ? response : (response.orders || []);
+            return orders;
+        } catch (error) {
+            console.log('Error fetching waiter orders:', error);
+            return [];
+        }
+    }
+
     async getCustomers() {
         return this.request<{ message: string, customers: Customer[] }>('api/customers', {
             method: 'GET',
@@ -247,6 +270,17 @@ export interface CreateOrderData {
     items: OrderItem[];
     total: number;
     paymentMethod: string;
+}
+
+export interface Order {
+    _id: string;
+    tableNo: string;
+    items: any[];
+    status: 'pending' | 'completed' | 'cancelled';
+    paymentStatus: 'pending' | 'paid' | 'partial';
+    total: number;
+    createdAt: string;
+    remarks?: string;
 }
 
 export const api = new ApiService(API_BASE_URL);
